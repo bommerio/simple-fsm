@@ -77,7 +77,7 @@
       ;(println "in fsm: " s ", " a ", " args)
       (if (= s uninitialized)
         ;; Start new
-        (apply init-state initial args)
+        (init-state initial args)
         ;; Step
         (run-machine states alphabet tf s a (or args []))    
         )
