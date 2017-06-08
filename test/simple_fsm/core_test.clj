@@ -2,37 +2,32 @@
   (:require [clojure.test :refer :all]
             [simple-fsm.core :refer :all]))
 
-(deftest empty-fsm
-  (testing "building a simple fsm"
+(deftest simple-fsm
+  (testing "a simple fsm"
     (let [fsm (build-fsm (initial :begin)
                          (final :end)
-                         (on :begin :go (go-to :end)
-                             :end  :any (go-to :end))) ;; Need to declare the end state (go-to isnt enough)
+                         (on :begin :go (go-to :end)))
           expected-first (init-state :begin nil)
           expected-last (init-state :end nil)
           ]
       ;; Initializing the machine
-      (is (= expected-first (fsm uninitialized nil)))
+      (is (= expected-first (start-new fsm)))
       ;; An unrecognized transition returns nil
-      (is (nil?             (fsm expected-first :foo)))
+      (is (nil?             (step fsm expected-first :foo)))
       ;; Recognized transition
-      (is (= expected-last  (fsm expected-first :go)))
+      (is (= expected-last  (step fsm expected-first :go)))
       ;; Absorbing state (:any action)
-      (is (= expected-last  (fsm expected-last :foo)))
+      (is (= expected-last  (step fsm expected-last :foo)))
       )))
 
-; FIXME: enter isnt called on initial state
-(deftest fsm-with-enter-fn-broken
-  (testing "fsm with enter function broken"
+(deftest fsm-with-initial-enter-fn
+  (testing "fsm with enter function on initial state"
     (let [enter-called (atom false)
           fsm (build-fsm (initial :begin)
                          (final   :end)
                          (on :begin :enter (call (fn [v] (reset! enter-called true) (vector nil v)))
-                             :begin :go (go-to :end)
-                             :end  :any (go-to :end))) ;; Need to declare the end state (go-to isnt enough)
-          expected-first (init-state :begin nil)
-          expected-last (init-state :end nil)
-          ]
+                             :begin :go (go-to :end)))]
+      (start-new fsm)
       ;; Verify that the enter function is called
       (is (true? @enter-called))
       ))
@@ -44,34 +39,44 @@
           fsm (build-fsm (initial :begin)
                          (final   :end)
                          (on :begin :go (go-to :end)
-                             :end  :enter (call (fn [v] (reset! enter-called true) (vector nil v)))
-                             :end  :any (go-to :end))) ;; Need to declare the end state (go-to isnt enough)
-          expected-first (fsm uninitialized nil)
+                             :end  :enter (call (fn [v] (reset! enter-called true) (vector nil v)))))
+          expected-first (start-new fsm)
           expected-last (init-state :end nil)
           ]
       (is (false? @enter-called))
-      (is (= expected-last  (fsm expected-first :go)))
+      (is (= expected-last  (step fsm expected-first :go)))
       ;; Verify that the enter function is called
       (is (true? @enter-called))
       ))
 
   )
 
+(deftest fsm-with-initial-enter-fn-update-value
+  (testing "fsm with enter function on initial state that updates value"
+    (let [fsm (build-fsm (initial :begin)
+                         (final   :end)
+                         (on :begin :enter (call (fn [v] (vector nil (assoc v :enter-called true))))
+                             :begin :go    (go-to :end)))
+          expected-first (init-state :begin {:enter-called true})
+          undertest      (start-new fsm {:enter-called false})
+          ]
+      ;; Verify that the enter function is called by testing the states with value
+      (is (= expected-first undertest)))))
+
 (deftest fsm-with-enter-fn-update-value
   (testing "fsm with enter function that updates value"
     (let [fsm (build-fsm (initial :begin)
                          (final   :end)
                          (on :begin :go (go-to :end)
-                             :end  :enter (call (fn [v] (vector nil (assoc v :enter-called true))))
-                             :end  :any (go-to :end))) ;; Need to declare the end state (go-to isnt enough)
-          expected-first (fsm uninitialized {:enter-called false})
-          expected-last (init-state :end {:enter-called true})
+                             :end  :enter (call (fn [v] (vector nil (assoc v :enter-called true))))))
+          expected-first (init-state :begin {:enter-called false})
+          expected-last  (init-state :end {:enter-called true})
+          undertest      (start-new fsm {:enter-called false})
           ]
       ;; Verify that the enter function is called by testing the states with value
-      (is (= expected-last  (fsm expected-first :go)))
-      ))
-
-  )
+      (is (= expected-first undertest))
+      (is (= expected-last  (step fsm undertest :go)))
+      )))
 
 (deftest on-definition
   (testing "on definition function"
