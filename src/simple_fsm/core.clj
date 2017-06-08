@@ -58,9 +58,7 @@
   (fn [value & iargs]
     (let [allargs (concat args [value] iargs)]
       (apply f allargs)
-      )
-    )
-  )
+      )))
 
 (defn init-state [initial value]
   {:state-key initial :history [] :snooze 0 :error? nil :error-value nil :value value})
