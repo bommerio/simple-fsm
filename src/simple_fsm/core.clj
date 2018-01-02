@@ -79,11 +79,8 @@
 
 (defprotocol IStateMachine
   (in-terminal-state? [this s])
-  (start-new [this]
-             [this value])
-  (step [this s a]
-        [this s a args])
-  )
+  (do-start-new [this value])
+  (do-step [this s a args]))
 
 (defn build-fsm [initial final t & ts]
   (let [final-set (set final) 
@@ -97,13 +94,15 @@
     (reify IStateMachine
       (in-terminal-state? [_ {:keys [state-key]}]
         (some? (final-set state-key)))
-      (start-new [this]
-        (start-new this nil))
-      (start-new [_ value]
+      (do-start-new [_ value]
         (as-> (init-state initial value) mach
           (run-enter-if-available states alphabet tf mach [])))
-      (step [this s a]
-        (step this s a nil))
-      (step [_ s a args]
+      (do-step [_ s a args]
         (run-machine states alphabet tf s a (or args [])))
       )))
+      
+(defn start-new [this & [value]]
+  (do-start-new this value))
+
+(defn step [this s a & args]
+  (do-step this s a args))
